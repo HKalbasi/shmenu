@@ -1,5 +1,5 @@
 [package]
-name = "x11test"
+name = "shmenu"
 version = "0.1.0"
 edition = "2021"
 
