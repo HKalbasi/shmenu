@@ -14,8 +14,9 @@ use x11rb::{atom_manager, CURRENT_TIME};
 use x11rb_protocol::protocol::xproto::*;
 use xkbcommon::xkb as xkbc;
 
-use crate::history_completer::{add_history_record, get_history_candidate};
+use crate::history_completer::{add_history_record, get_history_candidate, get_history_item};
 
+mod bash_completer;
 mod history_completer;
 
 // A collection of the atoms we will need.
@@ -184,6 +185,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     conn.create_gc(foreground, window, &values)?;
 
     let mut prompt = "".to_owned();
+    let mut history_index = -1;
+
+    set_current_dir(home::home_dir().unwrap())?;
 
     loop {
         match conn.wait_for_event()? {
@@ -219,12 +223,22 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                     xkbc::keysyms::KEY_Return => {
                         _ = add_history_record(&prompt);
-                        set_current_dir(home::home_dir().unwrap())?;
                         _ = exec::Command::new("bash").arg("-ci").arg(&prompt).exec();
                         return Ok(());
                     }
                     xkbc::keysyms::KEY_Right => {
                         prompt = get_history_candidate(&prompt);
+                    }
+                    xkbc::keysyms::KEY_Tab => {
+                        prompt = bash_completer::get_candidate(&prompt).unwrap_or(prompt);
+                    }
+                    xkbc::keysyms::KEY_Up => {
+                        history_index += 1;
+                        prompt = get_history_item(history_index);
+                    }
+                    xkbc::keysyms::KEY_Down => {
+                        history_index -= 1;
+                        prompt = get_history_item(history_index);
                     }
                     _ => {
                         prompt += &text;
